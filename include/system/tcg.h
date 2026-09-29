@@ -25,4 +25,9 @@ extern bool tcg_allowed;
  */
 bool qemu_tcg_mttcg_enabled(void);
 
+#ifdef CONFIG_TCG_INTERPRETER
+/* Fixed guest TSC cycles per x86 instruction; zero disables cycle timing. */
+uint32_t tcg_x86_cycles_per_insn(void);
+#endif
+
 #endif

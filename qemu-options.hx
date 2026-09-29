@@ -238,6 +238,7 @@ DEF("accel", HAS_ARG, QEMU_OPTION_accel,
     "                kernel-irqchip=on|off|split controls accelerated irqchip support (default=on)\n"
     "                kvm-shadow-mem=size of KVM shadow MMU in bytes\n"
     "                one-insn-per-tb=on|off (one guest instruction per TCG translation block)\n"
+    "                x86-cycles-per-insn=n (TCI x86 TSC cycles per instruction; requires -icount shift=N)\n"
     "                split-wx=on|off (enable TCG split w^x mapping)\n"
     "                tb-size=n (TCG translation block cache size)\n"
     "                dirty-ring-size=n (KVM dirty ring GFN count, default 0)\n"
@@ -273,6 +274,16 @@ SRST
         each translation block. This slows down emulation a lot, but
         can be useful in some situations, such as when trying to analyse
         the logs produced by the ``-d`` option.
+
+    ``x86-cycles-per-insn=n``
+        With an x86 TCG interpreter build, advance the guest TSC by ``n``
+        cycles for each executed guest instruction. This requires
+        ``-icount shift=N``. The virtual clock advances by ``2^N`` ns per
+        instruction, so the modeled TSC frequency is
+        ``n * 10^9 / 2^N`` Hz. For example, ``n=4`` and ``shift=2``
+        model a 1 GHz TSC. The default value, zero, preserves the
+        usual TSC behavior. This is a fixed instruction cost, not a
+        microarchitecture timing model.
 
     ``split-wx=on|off``
         Controls the use of split w^x mapping for the TCG code generation

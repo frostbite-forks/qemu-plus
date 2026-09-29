@@ -14,6 +14,14 @@ long an instruction would take on real hardware. That is a job for
 other more detailed (and slower) tools that simulate the rest of a
 micro-architecture.
 
+For x86 system emulation built with ``--enable-tcg-interpreter``, the
+``-accel tcg,x86-cycles-per-insn=N`` option can expose a fixed cycle cost
+through RDTSC and RDTSCP. It requires a fixed ``-icount shift=S`` so that
+virtual time advances by ``2^S`` ns per instruction. The guest TSC advances
+by ``N`` cycles per instruction. This is deterministic, but does not model
+instruction latency, cache behavior, or superscalar execution.
+When migrating a VM, use the same cycle setting on the destination.
+
 This feature is only available for system emulation and is
 incompatible with multi-threaded TCG. It can be used to better align
 execution time with wall-clock time so a "slow" device doesn't run too

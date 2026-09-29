@@ -54,6 +54,9 @@ struct TCGState {
     bool one_insn_per_tb;
     int splitwx_enabled;
     unsigned long tb_size;
+#if defined(CONFIG_TCG_INTERPRETER) && !defined(CONFIG_USER_ONLY)
+    uint32_t x86_cycles_per_insn;
+#endif
 };
 typedef struct TCGState TCGState;
 
@@ -61,6 +64,48 @@ typedef struct TCGState TCGState;
 
 DECLARE_INSTANCE_CHECKER(TCGState, TCG_STATE,
                          TYPE_TCG_ACCEL)
+
+#if defined(CONFIG_TCG_INTERPRETER) && !defined(CONFIG_USER_ONLY)
+static uint32_t x86_cycles_per_insn;
+
+uint32_t tcg_x86_cycles_per_insn(void)
+{
+    return x86_cycles_per_insn;
+}
+
+static void tcg_get_x86_cycles_per_insn(Object *obj, Visitor *v,
+                                         const char *name, void *opaque,
+                                         Error **errp)
+{
+    TCGState *s = TCG_STATE(obj);
+    uint32_t value = s->x86_cycles_per_insn;
+
+    visit_type_uint32(v, name, &value, errp);
+}
+
+static void tcg_set_x86_cycles_per_insn(Object *obj, Visitor *v,
+                                         const char *name, void *opaque,
+                                         Error **errp)
+{
+    TCGState *s = TCG_STATE(obj);
+    uint32_t value;
+
+    if (!visit_type_uint32(v, name, &value, errp)) {
+        return;
+    }
+    if (tcg_allowed) {
+        error_setg(errp, "x86-cycles-per-insn cannot change after TCG initialization");
+        return;
+    }
+    if (value && icount_enabled() != ICOUNT_PRECISE) {
+        error_setg(errp, "x86-cycles-per-insn requires -icount shift=N");
+        return;
+    }
+
+    s->x86_cycles_per_insn = value;
+    x86_cycles_per_insn = value;
+}
+#endif
 
 #ifndef CONFIG_USER_ONLY
 bool qemu_tcg_mttcg_enabled(void)
@@ -286,6 +331,16 @@ static void tcg_accel_class_init(ObjectClass *oc, const void *data)
                                    tcg_set_one_insn_per_tb);
     object_class_property_set_description(oc, "one-insn-per-tb",
         "Only put one guest insn in each translation block");
+
+#if defined(CONFIG_TCG_INTERPRETER) && !defined(CONFIG_USER_ONLY)
+    if (!strcmp(target_name(), "i386") || !strcmp(target_name(), "x86_64")) {
+        object_class_property_add(oc, "x86-cycles-per-insn", "uint32",
+            tcg_get_x86_cycles_per_insn, tcg_set_x86_cycles_per_insn,
+            NULL, NULL);
+        object_class_property_set_description(oc, "x86-cycles-per-insn",
+            "Fixed number of guest TSC cycles per executed x86 instruction");
+    }
+#endif
 }
 
 static const TypeInfo tcg_accel_type = {

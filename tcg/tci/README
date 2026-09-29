@@ -45,9 +45,9 @@ For hosts with native TCG, the interpreter TCI can be enabled by
 
         configure --enable-tcg-interpreter
 
-The only difference from running QEMU with TCI to running without TCI
-should be speed. Especially during development of TCI, it was very
-useful to compare runs with and without TCI. Create /tmp/qemu.log by
+By default, the only difference from running QEMU with TCI to running
+without TCI should be speed. Especially during development of TCI, it
+was very useful to compare runs with and without TCI. Create /tmp/qemu.log by
 
         qemu-system-i386 -d in_asm,op_opt,cpu -D /tmp/qemu.log -accel tcg,one-insn-per-tb=on
 
@@ -55,6 +55,16 @@ once with interpreter and once without interpreter and compare the resulting
 qemu.log files. This is also useful to see the effects of additional
 registers or additional opcodes (it is easy to modify the virtual machine).
 It can also be used to verify native TCGs.
+
+For i386 or x86_64 system emulation, TCI can expose a fixed number of
+guest TSC cycles per executed instruction. For example:
+
+        qemu-system-x86_64 -accel tcg,x86-cycles-per-insn=4 \
+            -icount shift=2,sleep=off ...
+
+Here each instruction advances the TSC by 4 cycles and virtual time by
+4 ns, giving a nominal 1 GHz TSC. The option requires a fixed icount
+shift. It does not simulate instruction-dependent latency or caches.
 
 Hosts with native TCG can also enable TCI by claiming to be unsupported:
 

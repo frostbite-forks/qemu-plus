@@ -23,6 +23,8 @@
 #include "qemu/osdep.h"
 #include "system/whpx.h"
 #include "system/cpu-timers.h"
+#include "system/tcg.h"
+#include "exec/icount.h"
 #include "trace.h"
 
 #include "hw/i386/x86.h"
@@ -34,6 +36,13 @@
 /* TSC handling */
 uint64_t cpu_get_tsc(CPUX86State *env)
 {
+#ifdef CONFIG_TCG_INTERPRETER
+    uint32_t cycles = tcg_x86_cycles_per_insn();
+
+    if (cycles && tcg_enabled()) {
+        return (uint64_t)icount_get_raw() * cycles;
+    }
+#endif
     return cpus_get_elapsed_ticks();
 }
 
