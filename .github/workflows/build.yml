@@ -33,7 +33,7 @@ jobs:
             --target-list=i386-softmmu,x86_64-softmmu \
             --enable-tcg-interpreter \
             --enable-sdl --enable-slirp --disable-gtk \
-            --disable-docs --disable-werror --disable-download
+            --disable-docs --disable-werror
           make -j2
 
       - name: Stage and verify artifact
@@ -108,7 +108,7 @@ jobs:
             --target-list=i386-softmmu,x86_64-softmmu \
             --enable-tcg-interpreter \
             --enable-sdl --enable-slirp --disable-gtk --disable-fdt \
-            --disable-docs --disable-werror --disable-download
+            --disable-docs --disable-werror
           make -j2
 
       - name: Stage and verify artifact
