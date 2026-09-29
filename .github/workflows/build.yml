@@ -1,0 +1,135 @@
+name: Build QEMU
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison bzip2 flex libfdt-dev libglib2.0-dev libpixman-1-dev \
+            libslirp-dev libsdl2-dev libzstd-dev meson ninja-build \
+            pkgconf python3-pip python3-setuptools python3-venv python3-wheel
+
+      - name: Configure and build
+        run: |
+          set -euo pipefail
+          mkdir build
+          cd build
+          ../configure \
+            --prefix=/usr \
+            --target-list=i386-softmmu,x86_64-softmmu \
+            --enable-tcg-interpreter \
+            --enable-sdl --enable-slirp --disable-gtk \
+            --disable-docs --disable-werror --disable-download
+          make -j2
+
+      - name: Stage and verify artifact
+        run: |
+          set -euo pipefail
+          DESTDIR="$PWD/stage" make -C build install
+          mv stage/usr package
+          cp -a pc-bios package/pc-bios
+          test -s package/bin/qemu-system-i386
+          test -s package/bin/qemu-system-x86_64
+          test -s package/share/qemu/bios.bin
+          test -s package/pc-bios/bios.bin
+          package/bin/qemu-system-x86_64 --version
+          tar -czf qemu-ubuntu-x86_64.tar.gz -C package .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qemu-ubuntu-x86_64
+          path: qemu-ubuntu-x86_64.tar.gz
+          archive: false
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      MSYS: winsymlinks:native
+    steps:
+      - name: Preserve Unix line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - name: Enable Windows symlinks
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force | Out-Null
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            bison bzip2 diffutils flex git make sed
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-glib2
+            mingw-w64-ucrt-x86_64-libslirp
+            mingw-w64-ucrt-x86_64-meson
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pixman
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+            mingw-w64-ucrt-x86_64-python-setuptools
+            mingw-w64-ucrt-x86_64-python-wheel
+            mingw-w64-ucrt-x86_64-SDL2
+            mingw-w64-ucrt-x86_64-zstd
+
+      - name: Configure and build
+        run: |
+          set -euo pipefail
+          mkdir build
+          cd build
+          ../configure \
+            --prefix="$MINGW_PREFIX" \
+            --target-list=i386-softmmu,x86_64-softmmu \
+            --enable-tcg-interpreter \
+            --enable-sdl --enable-slirp --disable-gtk --disable-fdt \
+            --disable-docs --disable-werror --disable-download
+          make -j2
+
+      - name: Stage and verify artifact
+        run: |
+          set -euo pipefail
+          DESTDIR="$PWD/stage" make -C build install
+          install_root=$(find stage -type d -name "${MINGW_PREFIX##*/}" -print -quit)
+          test -n "$install_root"
+          mv "$install_root" package
+          cp -a pc-bios package/pc-bios
+          cp "$MINGW_PREFIX"/bin/*.dll package/bin/
+          test -s package/bin/qemu-system-i386.exe
+          test -s package/bin/qemu-system-x86_64.exe
+          test -s package/share/qemu/bios.bin
+          test -s package/pc-bios/bios.bin
+          package/bin/qemu-system-x86_64.exe --version
+          tar -czf qemu-windows-x86_64.tar.gz -C package .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qemu-windows-x86_64
+          path: qemu-windows-x86_64.tar.gz
+          archive: false
+          if-no-files-found: error
